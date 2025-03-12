@@ -2,12 +2,10 @@
 
 Instalar Wamp, nodeJs, composer
 
-cd pastaprojeto
-composer install
+cd pastaprojeto e composer install
 
-inicar o servidor php artisan serve
+inicar o servidor: php artisan serve
 
-pasta do frotend:
-npm install
-iniciar frontend
+pasta do frotend: npm install,
+iniciar frontend,
 npm run dev
