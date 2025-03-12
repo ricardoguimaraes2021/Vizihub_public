@@ -1,5 +1,5 @@
 # Vizihub_PDS
-Grupo 3
+
 Instalar Wamp, nodeJs, composer
 
 cd pastaprojeto
