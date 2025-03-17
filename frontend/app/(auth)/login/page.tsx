@@ -34,13 +34,11 @@ export default function LoginPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.message || "Erro ao fazer login")
+        throw new Error(data.message || "Credenciais inválidas.")
       }
 
-      // Guarda o token no localStorage ou nos cookies
       document.cookie = `authToken=${data.token}; path=/; Secure`
 
-      // Redireciona para o dashboard
       router.push("/dashboard")
     } catch (err: any) {
       setError(err.message)

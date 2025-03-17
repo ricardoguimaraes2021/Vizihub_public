@@ -9,16 +9,63 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Categories;
 use App\Models\ProductsState;
 use App\Models\AdsMessages;
+use App\Models\AdsFavorite;
 use Carbon\Carbon;
 use App\Events\NewChatMessage;
+use Illuminate\Support\Facades\Mail;
+
 
 
 
 class MarketplaceController extends Controller
 {
    
+    public function getAllCategory()
+    {
+        $categories = Categories::all();
+        return response()->json(['categories' => $categories], 200);
+    }
+
+    public function getAllProdcutState()
+    {
+        $productsState = ProductsState::all();
+        return response()->json(['productsState' => $productsState], 200);
+    }
+
+    public function getAllActiveAds()
+    {
+        $userId = Auth::id();
+        $ads = Ads::where('status_id', 2)
+        ->orderBy('created_at', 'desc')
+        ->get();        $adsWithImages = [];
+    
+        foreach ($ads as $ad) {
+
+            $adFolder = public_path("uploads/ads/{$ad->id}");
+            $imagePaths = [];
+    
+            if (file_exists($adFolder)) {
+                $files = scandir($adFolder);
+                foreach ($files as $file) {
+                    if ($file !== '.' && $file !== '..') {
+                        $imagePaths[] = url("uploads/ads/{$ad->id}/{$file}");
+                    }
+                }
+            }
+    
+            $adsWithImages[] = [
+                'ad' => $ad,
+                'images' => $imagePaths
+            ];
+        }
+    
+        return response()->json(['ads' => $adsWithImages, 'userID' => $userId], 200);
+    }
+
     public function getById($id)
     {
+        $userId = Auth::id();
+
         $ad = Ads::with(['user', 'category', 'state'])->find($id);
     
         if (!$ad) {
@@ -53,21 +100,22 @@ class MarketplaceController extends Controller
                 'created_at' => Carbon::parse($ad->created_at)->format('d-m-Y'),
 
             ],
-            'images' => $imagePaths
+            'images' => $imagePaths,
+            'user_id' => $userId
         ], 200);
     }
     
-    
-    public function getAllActiveAds()
+    public function getAllMyAds()
     {
-        $ads = Ads::where('status_id', 2)->get();
+        $userId = Auth::id();
+        $ads = Ads::with('status')->where('created_by', $userId)->get();        
+        
         $adsWithImages = [];
-    
+
         foreach ($ads as $ad) {
 
             $adFolder = public_path("uploads/ads/{$ad->id}");
             $imagePaths = [];
-    
             if (file_exists($adFolder)) {
                 $files = scandir($adFolder);
                 foreach ($files as $file) {
@@ -86,7 +134,7 @@ class MarketplaceController extends Controller
         return response()->json(['ads' => $adsWithImages], 200);
     }
     
-
+   
     public function createAd(Request $request)
     {
         $request->validate([
@@ -104,7 +152,7 @@ class MarketplaceController extends Controller
             'state_product_id' => $request->state_product_id,
             'price' => $request->price,
             'category_id' => $request->category_id,
-            'active' => true, 
+            'active' => 1, 
             'created_by' => Auth::id(), 
         ]);
     
@@ -123,6 +171,19 @@ class MarketplaceController extends Controller
             }
         }
     
+
+        $data = [
+            'subject' => 'Anúncio Pendente',
+            'message' => 'Olá, tem um anuncio pendente para aprovação.',
+        ];
+    
+        Mail::send([], [], function ($message) use ($data) {
+            $message->to('tadeucosta00@gmail.com')
+                    ->subject($data['subject'])
+                    ->setBody($data['message'], 'text/plain');
+        });
+    
+
         return response()->json([
             'message' => 'Anúncio criado com sucesso',
             'ad' => $ad,
@@ -130,18 +191,162 @@ class MarketplaceController extends Controller
         ], 201);
     }
     
-
-    public function getAllCategory()
+    public function addAdsFavorites(Request $request)
     {
-        $categories = Categories::all();
-        return response()->json(['categories' => $categories], 200);
+        $request->validate([
+            'ad_id' => 'required|exists:ads,id', 
+        ]);
+    
+        $userId = Auth::id();
+    
+        $favorite = AdsFavorite::where('user_id', $userId)
+                                ->where('ad_id', $request->ad_id)
+                                ->first();
+    
+        if ($favorite) {
+            if ($favorite->active == 1) {
+                $favorite->update(['active' => 0]);
+                return response()->json(['message' => 'Anúncio removido dos favoritos'], 200);
+            } else {
+                $favorite->update(['active' => 1]);
+                return response()->json(['message' => 'Anúncio adicionado aos favoritos'], 200);
+            }
+        }
+    
+        $favorite = AdsFavorite::create([
+            'user_id' => $userId,
+            'ad_id' => $request->ad_id,
+            'active' => 1, 
+        ]);
+    
+        return response()->json(['message' => 'Anúncio adicionado aos favoritos com sucesso', 'favorite' => $favorite], 201);
+    }
+    
+    public function getMyAdsFavorites(Request $request)
+    {
+        $userId = Auth::id();
+    
+        $favorites = AdsFavorite::with('ad')
+                                ->where('user_id', $userId)
+                                ->where('active', 1)
+                                ->get();
+    
+        if ($favorites->isEmpty()) {
+            return response()->json(['message' => 'Nenhum anúncio favorito encontrado.'], 404);
+        }
+
+        foreach ($favorites as $favorite) {
+
+            $adFolder = public_path("uploads/ads/{$favorite->ad_id}");
+            $imagePaths = [];
+    
+            if (file_exists($adFolder)) {
+                $files = scandir($adFolder);
+                foreach ($files as $file) {
+                    if ($file !== '.' && $file !== '..') {
+                        $imagePaths[] = url("uploads/ads/{$favorite->ad_id}/{$file}");
+                    }
+                }
+            }
+    
+            $adsWithImages[] = [
+                'ad' => $favorite->ad,
+                'images' => $imagePaths,
+            ];
+        }
+    
+        return response()->json(['favorites' => $adsWithImages], 200);
+    }
+    
+    public function markAdSell(Request $request)
+    {
+        $request->validate([
+            'ad_id' => 'required|exists:ads,id',
+        ]);
+    
+        $adId = $request->input('ad_id');
+    
+        $ad = Ads::find($adId);
+    
+        if (!$ad) {
+            return response()->json(['message' => 'Anúncio não encontrado.'], 404);
+        }
+    
+        $soldStatusId = 3;
+    
+        if ($ad->status_id == $soldStatusId) {
+            return response()->json(['message' => 'Este anúncio já está marcado como vendido.'], 400);
+        }
+    
+        $ad->status_id = $soldStatusId;
+        $ad->save();
+    
+        return response()->json(['message' => 'Anúncio marcado como vendido com sucesso.'], 200);
+    }
+    
+    public function deleteAd(Request $request)
+    {
+        $request->validate([
+            'ad_id' => 'required|exists:ads,id',
+        ]);
+    
+        $adId = $request->input('ad_id');
+    
+        $ad = Ads::find($adId);
+    
+        if (!$ad) {
+            return response()->json(['message' => 'Anúncio não encontrado.'], 404);
+        }
+    
+        $desactiveStatusId = 4;
+    
+        if ($ad->status_id == $desactiveStatusId) {
+            return response()->json(['message' => 'Este anúncio já está marcado como desativo.'], 400);
+        }
+    
+        $ad->status_id = $desactiveStatusId;
+        $ad->save();
+    
+        return response()->json(['message' => 'Anúncio marcado como vendido com desativo.'], 200);
     }
 
-    public function getAllProdcutState()
+    
+    public function getUserChats()
     {
-        $productsState = ProductsState::all();
-        return response()->json(['productsState' => $productsState], 200);
+        $userId = Auth::id();
+    
+        $chats = AdsChat::where('buyer_id', $userId)
+            ->orWhere('seller_id', $userId)
+            ->with(['ad', 'buyer', 'seller', 
+            
+            'messages' => function($query) {
+                $query->latest()->limit(1);
+            }])
+            ->get();
+    
+        foreach ($chats as $chat) {
+            $adFolder = public_path("uploads/ads/{$chat->ad_id}");
+            $imagePaths = [];
+    
+            if (file_exists($adFolder)) {
+                $files = scandir($adFolder);
+                foreach ($files as $file) {
+                    if ($file !== '.' && $file !== '..') {
+                        $imagePaths[] = url("uploads/ads/{$chat->ad_id}/{$file}");
+                    }
+                }
+            }
+    
+            $chat->img = $imagePaths[0] ?? null;
+        }
+    
+        return response()->json([
+            'chats' => $chats,
+            'user_id' => $userId,
+        ], 200);
     }
+    
+
 
     public function createOrGetChat(Request $request)
     {
@@ -154,7 +359,7 @@ class MarketplaceController extends Controller
         $adId = $request->ad_id;
         $sellerId = $request->seller_id;
 
-        // Verifica se já existe um chat entre os usuários (tanto comprador quanto vendedor)
+
         $chat = AdsChat::where('ad_id', $adId)
             ->where(function ($query) use ($userId, $sellerId) {
                 $query->where('buyer_id', $userId)
@@ -164,11 +369,10 @@ class MarketplaceController extends Controller
             })
             ->first();
 
-        // Se não existir, cria um novo chat
         if (!$chat) {
             $chat = AdsChat::create([
                 'ad_id' => $adId,
-                'buyer_id' => $userId === $sellerId ? null : $userId, // Se for o próprio vendedor, não define buyer_id
+                'buyer_id' => $userId === $sellerId ? null : $userId, 
                 'seller_id' => $sellerId,
             ]);
         }
@@ -251,8 +455,5 @@ class MarketplaceController extends Controller
     
         return response()->json(['chats' => $formattedChats], 200);
     }
-    
-    
-
 }
 

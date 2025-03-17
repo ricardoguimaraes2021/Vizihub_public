@@ -1,55 +1,71 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
-// Mock data - em uma aplicação real, isso viria da sua API
-const conversations = [
-  {
-    id: 1,
-    product: {
-      id: 1,
-      title: "Sofá de 3 lugares",
-      image: "/placeholder.svg?height=50&width=50",
-      price: 350,
-    },
-    seller: {
-      id: 1,
-      name: "João Silva",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    lastMessage: {
-      text: "Olá! O sofá ainda está disponível?",
-      timestamp: new Date(2024, 2, 6, 14, 30),
-      isRead: false,
-    },
-  },
-  {
-    id: 2,
-    product: {
-      id: 2,
-      title: "Mesa de jantar com 6 cadeiras",
-      image: "/placeholder.svg?height=50&width=50",
-      price: 450,
-    },
-    seller: {
-      id: 2,
-      name: "Maria Santos",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    lastMessage: {
-      text: "Podemos combinar a entrega para amanhã?",
-      timestamp: new Date(2024, 2, 5, 18, 45),
-      isRead: true,
-    },
-  },
-]
+const getAuthToken = () => {
+  const match = document.cookie.match(/(^| )authToken=([^;]+)/)
+  return match ? match[2] : null
+}
 
 export default function MensagensPage() {
   const [selectedConversation, setSelectedConversation] = useState<number | null>(null)
+  const [conversations, setConversations] = useState<any[]>([])
+  const [loading, setLoading] = useState(true) 
+  const router = useRouter()
+
+  useEffect(() => {
+    async function fetchConversations() {
+      try {
+        const token = getAuthToken()
+        if (!token) {
+          router.push("/login")
+          return
+        }
+
+        const response = await fetch("http://localhost:8000/api/marketplace/getchats", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error("Erro ao carregar as conversas")
+        }
+
+        const data = await response.json()
+        setConversations(data.chats) 
+        setLoading(false) 
+
+      } catch (error: any) {
+        console.error(error)
+        router.push("/login")
+      }
+    }
+
+    fetchConversations()
+  }, [router])
+
+  if (loading) {
+    return <p>Carregando...</p>
+  }
+
+  if (conversations.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center p-8 text-center">
+        <div className="space-y-2">
+          <p className="text-lg font-medium">Nenhuma conversa disponível</p>
+          <p className="text-sm text-muted-foreground">Suas conversas com vendedores aparecerão aqui.</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-[calc(100vh-12rem)] gap-6 rounded-lg border">
@@ -60,55 +76,37 @@ export default function MensagensPage() {
             <h2 className="text-lg font-semibold">Mensagens</h2>
           </div>
           <div className="flex-1 overflow-auto">
-            {conversations.length > 0 ? (
-              conversations.map((conversation) => (
-                <button
-                  key={conversation.id}
-                  onClick={() => setSelectedConversation(conversation.id)}
-                  className={cn(
-                    "w-full border-b p-4 text-left transition-colors hover:bg-muted/50",
-                    selectedConversation === conversation.id && "bg-muted",
-                    !conversation.lastMessage.isRead && "bg-muted/30",
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <Image
-                      src={conversation.product.image || "/placeholder.svg"}
-                      alt={conversation.product.title}
-                      width={50}
-                      height={50}
-                      className="rounded-md object-cover"
-                    />
-                    <div className="flex-1 space-y-1">
-                      <p className="font-medium line-clamp-1">{conversation.product.title}</p>
-                      <div className="flex items-center gap-2">
-                        <Image
-                          src={conversation.seller.avatar || "/placeholder.svg"}
-                          alt={conversation.seller.name}
-                          width={20}
-                          height={20}
-                          className="rounded-full"
-                        />
-                        <p className="text-sm text-muted-foreground">{conversation.seller.name}</p>
-                      </div>
-                      <p className="text-sm line-clamp-1">{conversation.lastMessage.text}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {format(conversation.lastMessage.timestamp, "d 'de' MMMM 'às' HH:mm", {
-                          locale: ptBR,
-                        })}
-                      </p>
+            {conversations.map((conversation) => (
+              <button
+                key={conversation.ad.title}
+                onClick={() => setSelectedConversation(conversation.ad.title)}
+                className={cn(
+                  "w-full border-b p-4 text-left transition-colors hover:bg-muted/50",
+                  selectedConversation === conversation.ad.title && "bg-muted",
+                  !conversation.ad.title && "bg-muted/30"
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <Image
+                    src={conversation.img || "/placeholder.svg"}
+                    alt={conversation.ad.id}
+                    width={50}
+                    height={50}
+                    className="rounded-md object-cover"
+                  />
+                  <div className="flex-1 space-y-1">
+                    <p className="font-medium line-clamp-1">{conversation.ad.title}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">{conversation.buyer.name}</p>
                     </div>
+                    <p className="text-sm line-clamp-1">{conversation.messages[0].message}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {conversation.messages[0].date_time}
+                    </p>
                   </div>
-                </button>
-              ))
-            ) : (
-              <div className="flex h-full items-center justify-center p-8 text-center">
-                <div className="space-y-2">
-                  <p className="text-lg font-medium">Nenhuma conversa disponível</p>
-                  <p className="text-sm text-muted-foreground">Suas conversas com vendedores aparecerão aqui.</p>
                 </div>
-              </div>
-            )}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -128,4 +126,3 @@ export default function MensagensPage() {
     </div>
   )
 }
-

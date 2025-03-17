@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Upload, X } from "lucide-react"
@@ -13,14 +12,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-// Estados do produto
-const productConditions = [
-  { id: 1, name: "Novo" },
-  { id: 2, name: "Usado - Como Novo" },
-  { id: 3, name: "Usado - Bom Estado" },
-  { id: 4, name: "Usado - Com Marcas de Uso" },
-  { id: 5, name: "Para Peças ou Reparo" },
-]
+const getAuthToken = () => {
+  const match = document.cookie.match(/(^| )authToken=([^;]+)/);
+  return match ? match[2] : null;
+};
 
 export default function AdicionarProdutoPage() {
   const router = useRouter()
@@ -29,39 +24,110 @@ export default function AdicionarProdutoPage() {
     description: "",
     price: "",
     condition: "",
+    category: "", 
   })
-  const [images, setImages] = useState<string[]>([])
+  const [images, setImages] = useState<File[]>([])
+  const [productConditions, setProductConditions] = useState<{ id: number; name: string }[]>([])
+  const [categories, setCategories] = useState<{ id: number; name: string }[]>([])
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const authToken = getAuthToken()
+      if (!authToken) return
+
+      try {
+        const statesResponse = await fetch("http://localhost:8000/api/marketplace/product-states", {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        })
+        const statesData = await statesResponse.json()
+
+        if (Array.isArray(statesData.productsState)) {
+          setProductConditions(statesData.productsState)
+        } else {
+          console.error("A resposta de estados não é um array", statesData)
+        }
+
+        const categoriesResponse = await fetch("http://localhost:8000/api/marketplace/categories", {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        })
+        const categoriesData = await categoriesResponse.json()
+
+        if (Array.isArray(categoriesData.categories)) {
+          setCategories(categoriesData.categories)
+        } else {
+          console.error("A resposta de categorias não é um array", categoriesData)
+        }
+      } catch (error) {
+        console.error("Erro ao carregar dados da API", error)
+      }
+    }
+
+    fetchData()
+  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSelectChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, condition: value }))
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
 
-    // In a real app, you would upload these to your server/cloud storage
-    // Here we're just creating local URLs for preview
-    const newImages = Array.from(files).map((file) => URL.createObjectURL(file))
-    setImages((prev) => [...prev, ...newImages])
+    setImages((prev) => [...prev, ...Array.from(files)])
   }
 
   const removeImage = (index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Handle form submission here
-    console.log("Form data:", formData)
-    console.log("Images:", images)
-    // Navigate back to the marketplace
-    router.push("/marketplace")
+    const authToken = getAuthToken()
+
+    if (!authToken) return
+
+    const formDataToSend = new FormData()
+    formDataToSend.append("title", formData.title)
+    formDataToSend.append("description", formData.description)
+    formDataToSend.append("price", formData.price)
+    formDataToSend.append("state_product_id", formData.condition)
+    formDataToSend.append("category_id", formData.category)
+
+    images.forEach((image) => {
+      formDataToSend.append("images[]", image)
+    })
+
+    try {
+      const response = await fetch("http://localhost:8000/api/marketplace/anuncio", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: formDataToSend,
+      })
+
+      const responseData = await response.json()
+
+      if (response.ok) {
+        alert(responseData.message)
+        //router.push("/marketplace")
+      } else {
+        console.error("Erro ao criar anúncio:", responseData)
+        alert("Erro ao criar o anúncio. Tente novamente.")
+      }
+    } catch (error) {
+      console.error("Erro ao enviar dados", error)
+      alert("Erro ao enviar dados. Tente novamente.")
+    }
   }
 
   return (
@@ -117,7 +183,7 @@ export default function AdicionarProdutoPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="condition">Estado</Label>
-                <Select value={formData.condition} onValueChange={handleSelectChange} required>
+                <Select value={formData.condition} onValueChange={(value) => handleSelectChange('condition', value)} required>
                   <SelectTrigger id="condition">
                     <SelectValue placeholder="Selecione o estado do produto" />
                   </SelectTrigger>
@@ -125,6 +191,22 @@ export default function AdicionarProdutoPage() {
                     {productConditions.map((condition) => (
                       <SelectItem key={condition.id} value={condition.id.toString()}>
                         {condition.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="category">Categoria</Label>
+                <Select value={formData.category} onValueChange={(value) => handleSelectChange('category', value)} required>
+                  <SelectTrigger id="category">
+                    <SelectValue placeholder="Selecione a categoria do produto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id.toString()}>
+                        {category.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -138,7 +220,7 @@ export default function AdicionarProdutoPage() {
                 {images.map((image, index) => (
                   <div key={index} className="relative aspect-square rounded-md border">
                     <Image
-                      src={image || "/placeholder.svg"}
+                      src={URL.createObjectURL(image)}
                       alt={`Uploaded image ${index + 1}`}
                       fill
                       className="rounded-md object-cover"
@@ -177,4 +259,3 @@ export default function AdicionarProdutoPage() {
     </div>
   )
 }
-

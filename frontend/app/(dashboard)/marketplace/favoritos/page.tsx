@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
@@ -9,45 +8,82 @@ import { Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
-// Mock data - em uma aplicação real, isso viria da sua API
-const allProducts = [
-  {
-    id: 1,
-    title: "Sofá de 3 lugares",
-    price: 350,
-    image: "/placeholder.svg?height=200&width=300",
-  },
-  {
-    id: 2,
-    title: "Mesa de jantar com 6 cadeiras",
-    price: 450,
-    image: "/placeholder.svg?height=200&width=300",
-  },
-]
+const getAuthToken = () => {
+  const match = document.cookie.match(/(^| )authToken=([^;]+)/)
+  return match ? match[2] : null
+}
 
 export default function FavoritosPage() {
-  const [favorites, setFavorites] = useState<number[]>([])
-  const [products, setProducts] = useState(allProducts)
+  const [favorites, setFavorites] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Carregar favoritos do localStorage ao montar o componente
   useEffect(() => {
-    const savedFavorites = localStorage.getItem("favorites")
-    if (savedFavorites) {
-      const favoriteIds = JSON.parse(savedFavorites)
-      setFavorites(favoriteIds)
-      // Filtrar produtos para mostrar apenas os favoritos
-      setProducts(allProducts.filter((product) => favoriteIds.includes(product.id)))
+    const fetchFavorites = async () => {
+      try {
+        const token = getAuthToken()
+        if (!token) {
+          setError("Sessão expirada. Faça login novamente.")
+          setLoading(false)
+          return
+        }
+
+        const response = await fetch("http://localhost:8000/api/marketplace/getmyfavorites", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error("Erro ao carregar favoritos.")
+        }
+
+        const data = await response.json()
+
+        if (data.favorites && Array.isArray(data.favorites)) {
+          setFavorites(data.favorites)
+        }
+      } catch (err: any) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
     }
+
+    fetchFavorites()
   }, [])
 
-  const toggleFavorite = (e: React.MouseEvent, productId: number) => {
+  const toggleFavorite = async (e: React.MouseEvent, productId: number) => {
     e.preventDefault()
     e.stopPropagation()
 
-    const newFavorites = favorites.filter((id) => id !== productId)
-    setFavorites(newFavorites)
-    localStorage.setItem("favorites", JSON.stringify(newFavorites))
-    setProducts(products.filter((product) => product.id !== productId))
+    const token = getAuthToken()
+    if (!token) {
+      setError("Sessão expirada. Faça login novamente.")
+      return
+    }
+
+    try {
+      const response = await fetch("http://localhost:8000/api/marketplace/addfavorite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ad_id: productId }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Erro ao remover dos favoritos.")
+      }
+
+      setFavorites(favorites.filter((fav) => fav.ad.id !== productId))
+    } catch (err: any) {
+      setError(err.message)
+    }
   }
 
   return (
@@ -56,18 +92,30 @@ export default function FavoritosPage() {
         <h1 className="text-3xl font-bold">Meus Favoritos</h1>
       </div>
 
+      {loading && <p className="text-center text-gray-500">Carregando favoritos...</p>}
+      {error && <p className="text-center text-red-500">{error}</p>}
+
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {products.map((product) => (
+        {favorites.length === 0 && !loading && !error && (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Você ainda não tem nenhum anúncio favoritado.</p>
+            <Button asChild className="mt-4">
+              <Link href="/marketplace">Explorar anúncios</Link>
+            </Button>
+          </div>
+        )}
+
+        {favorites.map((favorites) => (
           <Link
-            key={product.id}
-            href={`/marketplace/${product.id}`}
+            key={favorites.ad.id}
+            href={`/marketplace/${favorites.ad.id}`}
             className="block transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg"
           >
             <Card className="h-full overflow-hidden cursor-pointer relative">
               <div className="aspect-video w-full overflow-hidden">
                 <Image
-                  src={product.image || "/placeholder.svg"}
-                  alt={product.title}
+                  src={favorites.images[0] || "/placeholder.svg"}
+                  alt={favorites.ad.title}
                   width={300}
                   height={200}
                   className="h-full w-full object-cover"
@@ -76,14 +124,14 @@ export default function FavoritosPage() {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="line-clamp-1 font-medium mb-1">{product.title}</h3>
-                    <p className="font-bold text-primary">{product.price}€</p>
+                    <h3 className="line-clamp-1 font-medium mb-1">{favorites.ad.title}</h3>
+                    <p className="font-bold text-primary">{favorites.ad.price}€</p>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-12 w-12 rounded-full text-red-500 hover:text-red-600"
-                    onClick={(e) => toggleFavorite(e, product.id)}
+                    onClick={(e) => toggleFavorite(e, favorites.ad.id)}
                   >
                     <Heart className="h-7 w-7 fill-current" />
                     <span className="sr-only">Remover dos favoritos</span>
@@ -94,16 +142,6 @@ export default function FavoritosPage() {
           </Link>
         ))}
       </div>
-
-      {products.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Você ainda não tem nenhum anúncio favoritado.</p>
-          <Button asChild className="mt-4">
-            <Link href="/marketplace">Explorar anúncios</Link>
-          </Button>
-        </div>
-      )}
     </div>
   )
 }
-

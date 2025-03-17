@@ -21,15 +21,15 @@ class AuthController extends Controller
         $user = User::where('email', $credentials['email'])->first();
 
         if (!$user) {
-            return response()->json(['error' => 'Credenciais inválidas.'], 200);
+            return response()->json(['error' => 'Credenciais inválidas.'], 401);
         }
 
         if (!Hash::check($credentials['password'], $user->password)) {
-            return response()->json(['error' => 'Credenciais inválidas.'], 200);
+            return response()->json(['error' => 'Credenciais inválidas.'], 401);
         }
 
         if ($user->active == 0) {
-            return response()->json(['error' => 'Conta inativa. Contacte o administrador.'], 200);
+            return response()->json(['error' => 'Conta inativa. Contacte o administrador.'], 403);
         }
 
         Auth::login($user);

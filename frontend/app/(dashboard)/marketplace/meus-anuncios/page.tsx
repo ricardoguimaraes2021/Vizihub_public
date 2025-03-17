@@ -1,13 +1,13 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import { PlusCircle, Pencil, Trash, Check } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { PlusCircle, Pencil, Trash, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,40 +18,89 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-
-// Mock data - em uma aplicação real, isso viria da sua API
-const myProducts = [
-  {
-    id: 1,
-    title: "Sofá de 3 lugares",
-    price: 350,
-    image: "/placeholder.svg?height=200&width=300",
-    status: "active", // active, sold
-  },
-  {
-    id: 2,
-    title: "Mesa de jantar com 6 cadeiras",
-    price: 450,
-    image: "/placeholder.svg?height=200&width=300",
-    status: "sold",
-  },
-]
+} from "@/components/ui/alert-dialog";
 
 export default function MeusAnunciosPage() {
-  const [products, setProducts] = useState(myProducts)
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const token = getAuthToken(); 
+        if (!token) {
+          setError("Sessão expirada. Faça login novamente.");
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch("http://localhost:8000/api/marketplace/meusanuncios", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Erro ao buscar anúncios.");
+        }
+
+        const data = await response.json();
+        setProducts(data.ads || []);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  const getAuthToken = () => {
+    const match = document.cookie.match(/(^| )authToken=([^;]+)/);
+    return match ? match[2] : null;
+  };
 
   const handleDelete = (productId: number) => {
-    setProducts(products.filter((product) => product.id !== productId))
-  }
+    setProducts(products.filter((product) => product.ad.id !== productId));
+  };
 
-  const toggleStatus = (productId: number) => {
-    setProducts(
-      products.map((product) =>
-        product.id === productId ? { ...product, status: product.status === "active" ? "sold" : "active" } : product,
-      ),
-    )
-  }
+  const toggleStatus = async (productId: number) => {
+    const token = getAuthToken();
+    if (!token) {
+      setError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:8000/api/marketplace/marksell", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ad_id: productId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Erro ao atualizar status do anúncio.");
+      }
+
+      setProducts(
+        products.map((product) =>
+          product.ad.id === productId
+            ? { ...product, ad: { ...product.ad, status: product.ad.status === "active" ? "sold" : "active" } }
+            : product
+        )
+      );
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -65,13 +114,16 @@ export default function MeusAnunciosPage() {
         </Button>
       </div>
 
+      {loading && <p className="text-center text-gray-500">Carregando anúncios...</p>}
+      {error && <p className="text-center text-red-500">{error}</p>}
+
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {products.map((product) => (
-          <Card key={product.id} className="overflow-hidden">
+          <Card key={product.ad.id} className="overflow-hidden">
             <div className="aspect-video w-full overflow-hidden">
               <Image
-                src={product.image || "/placeholder.svg"}
-                alt={product.title}
+                src={product.images[0] || "/placeholder.svg"}
+                alt={product.ad.title}
                 width={300}
                 height={200}
                 className="h-full w-full object-cover"
@@ -80,11 +132,11 @@ export default function MeusAnunciosPage() {
             <CardContent className="p-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="line-clamp-1 font-medium mb-1">{product.title}</h3>
+                  <h3 className="line-clamp-1 font-medium mb-1">{product.ad.title}</h3>
                   <div className="flex items-center space-x-2">
-                    <p className="font-bold text-primary">{product.price}€</p>
-                    <Badge variant={product.status === "sold" ? "secondary" : "outline"}>
-                      {product.status === "sold" ? "Vendido" : "Ativo"}
+                    <p className="font-bold text-primary">{product.ad.price}€</p>
+                    <Badge variant={product.ad.status === "sold" ? "secondary" : "outline"}>
+                      {product.ad.status.name}
                     </Badge>
                   </div>
                 </div>
@@ -104,14 +156,14 @@ export default function MeusAnunciosPage() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem asChild>
-                      <Link href={`/marketplace/${product.id}/editar`} className="flex items-center">
+                      <Link href={`/marketplace/${product.ad.id}/editar`} className="flex items-center">
                         <Pencil className="mr-2 h-4 w-4" />
                         <span>Editar</span>
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => toggleStatus(product.id)} className="flex items-center">
+                    <DropdownMenuItem onClick={() => toggleStatus(product.ad.id)} className="flex items-center">
                       <Check className="mr-2 h-4 w-4" />
-                      <span>{product.status === "sold" ? "Marcar como disponível" : "Marcar como vendido"}</span>
+                      <span>{product.ad.status === "sold" ? "Marcar como disponível" : "Marcar como vendido"}</span>
                     </DropdownMenuItem>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -133,7 +185,7 @@ export default function MeusAnunciosPage() {
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
                           <AlertDialogAction
-                            onClick={() => handleDelete(product.id)}
+                            onClick={() => handleDelete(product.ad.id)}
                             className="bg-red-600 hover:bg-red-700"
                           >
                             Remover
@@ -148,19 +200,6 @@ export default function MeusAnunciosPage() {
           </Card>
         ))}
       </div>
-
-      {products.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Você ainda não tem nenhum anúncio publicado.</p>
-          <Button asChild className="mt-4">
-            <Link href="/marketplace/adicionar">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Publicar meu primeiro anúncio
-            </Link>
-          </Button>
-        </div>
-      )}
     </div>
-  )
+  );
 }
-

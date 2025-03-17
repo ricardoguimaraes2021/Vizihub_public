@@ -4,9 +4,8 @@ import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, MessageSquare, User, Heart, LogOut, Tag, Calendar } from "lucide-react"
+import { ArrowLeft, MessageSquare, User, Heart, Tag, Calendar, Edit } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
@@ -22,6 +21,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [selectedImage, setSelectedImage] = useState<string>("")
   const [loading, setLoading] = useState(true)
   const [isFavorite, setIsFavorite] = useState(false)
+  const [userId, setUserId] = useState<number | null>(null)
 
   useEffect(() => {
     async function fetchProductDetails() {
@@ -51,6 +51,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           ...data.ad,
           images: data.images || [],
         })
+
+        setUserId(data.user_id) // ID do usuário autenticado
 
         if (data.images.length > 0) {
           setSelectedImage(data.images[0])
@@ -122,7 +124,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 <button
                   key={index}
                   onClick={() => setSelectedImage(image)}
-                  className={`relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border ${selectedImage === image ? "ring-2 ring-primary" : ""}`}
+                  className={`relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border ${
+                    selectedImage === image ? "ring-2 ring-primary" : ""
+                  }`}
                 >
                   <Image
                     src={image}
@@ -141,33 +145,34 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                </div>
-              </div>
+              <CardTitle className="text-2xl font-bold">Preço: {product.price}€</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <CardTitle className="text-2xl font-bold">Preço: {product.price}€</CardTitle>
-
               <div className="flex items-center space-x-2">
                 <User className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <div className="font-medium">Vendedor: {product.seller_name}</div>
-                </div>
+                <div className="font-medium">Vendedor: {product.seller_name}</div>
               </div>
               <div className="flex items-center space-x-2">
                 <Calendar className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <div className="font-medium">Data: {product.created_at}</div>
-                </div>
+                <div className="font-medium">Data: {product.created_at}</div>
               </div>
 
-              <Button className="w-full" asChild>
-                <Link href={`/marketplace/${id}/chat`}>
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  Enviar Mensagem
-                </Link>
-              </Button>
+              {/* Verifica se o usuário autenticado é o dono do anúncio */}
+              {userId === product.created_by ? (
+                <Button className="w-full" asChild>
+                  <Link href={`/marketplace/${id}/edit`}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Editar Anúncio
+                  </Link>
+                </Button>
+              ) : (
+                <Button className="w-full" asChild>
+                  <Link href={`/marketplace/${id}/chat`}>
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    Enviar Mensagem
+                  </Link>
+                </Button>
+              )}
             </CardContent>
           </Card>
 

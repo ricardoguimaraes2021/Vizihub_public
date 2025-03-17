@@ -39,10 +39,20 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/marketplace/anuncios', [MarketplaceController::class, 'getAllActiveAds']); 
     Route::get('/marketplace/anuncio/{id}', [MarketplaceController::class, 'getById']);
+    Route::get('/marketplace/meusanuncios', [MarketplaceController::class, 'getAllMyAds']); 
+    Route::post('/marketplace/marksell', [MarketplaceController::class, 'markAdSell']); 
+
+
+    Route::post('/marketplace/addfavorite', [MarketplaceController::class, 'addAdsFavorites']); 
+    Route::get('/marketplace/getmyfavorites', [MarketplaceController::class, 'getMyAdsFavorites']); 
+
+    
+
+
     Route::post('/marketplace/anuncio', [MarketplaceController::class, 'createAd']); 
     Route::get('/marketplace/categories', [MarketplaceController::class, 'getAllCategory']);
     Route::get('/marketplace/product-states', [MarketplaceController::class, 'getAllProdcutState']);
-    Route::post('/marketplace/getchat', [MarketplaceController::class, 'createOrGetChat']);
+    Route::get('/marketplace/getchats', [MarketplaceController::class, 'getUserChats']);
 
     Route::get('/marketplace/chats', [MarketplaceController::class, 'getchats']);
     Route::post('/marketplace/sendmessage', [MarketplaceController::class, 'sendMessage']);

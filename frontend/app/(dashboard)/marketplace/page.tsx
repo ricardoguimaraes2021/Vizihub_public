@@ -17,6 +17,7 @@ const getAuthToken = () => {
 export default function MarketplacePage() {
   const [products, setProducts] = useState<any[]>([]);
   const [favorites, setFavorites] = useState<number[]>([]);
+  const [userID, setUserID] = useState<number | null>(null); // Armazenar o userID
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,10 +45,9 @@ export default function MarketplacePage() {
         }
 
         const data = await response.json();
-        
         const ads = data.ads || [];
-        
         setProducts(ads);
+        setUserID(data.userID); // Setando o userID da resposta da API
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -59,22 +59,69 @@ export default function MarketplacePage() {
   }, []);
 
   useEffect(() => {
-    const savedFavorites = localStorage.getItem("favorites");
-    if (savedFavorites) {
-      setFavorites(JSON.parse(savedFavorites));
-    }
+    const fetchFavorites = async () => {
+      const token = getAuthToken();
+      if (!token) {
+        setError("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      try {
+        const response = await fetch("http://localhost:8000/api/marketplace/getmyfavorites", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Erro ao carregar favoritos.");
+        }
+
+        const data = await response.json();
+        const favoriteAdIds = data.favorites.map((favorites: any) => favorites.ad.id);
+        setFavorites(favoriteAdIds);
+      } catch (err: any) {
+        setError(err.message);
+      }
+    };
+
+    fetchFavorites();
   }, []);
 
-  const toggleFavorite = (e: React.MouseEvent, productId: number) => {
+  const toggleFavorite = async (e: React.MouseEvent, productId: number) => {
     e.preventDefault();
     e.stopPropagation();
 
-    const newFavorites = favorites.includes(productId)
-      ? favorites.filter((id) => id !== productId)
-      : [...favorites, productId];
+    const token = getAuthToken();
+    if (!token) {
+      setError("Sessão expirada. Faça login novamente.");
+      return;
+    }
 
-    setFavorites(newFavorites);
-    localStorage.setItem("favorites", JSON.stringify(newFavorites));
+    try {
+      const response = await fetch("http://localhost:8000/api/marketplace/addfavorite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ad_id: productId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Erro ao adicionar aos favoritos.");
+      }
+
+      const updatedFavorites = isFavorite(productId)
+        ? favorites.filter((id) => id !== productId)
+        : [...favorites, productId];
+      setFavorites(updatedFavorites);
+
+    } catch (err: any) {
+      setError(err.message);
+    }
   };
 
   const isFavorite = (productId: number) => favorites.includes(productId);
@@ -108,7 +155,7 @@ export default function MarketplacePage() {
             <Card className="h-full overflow-hidden cursor-pointer relative">
               <div className="aspect-video w-full overflow-hidden">
                 <Image
-                  src={product.image || "/placeholder.svg"}
+                  src={product.images[0] || "/placeholder.svg"}
                   alt={product.ad.title}
                   width={300}
                   height={200}
@@ -121,22 +168,25 @@ export default function MarketplacePage() {
                     <h3 className="line-clamp-1 font-medium mb-1">{product.ad.title}</h3>
                     <p className="font-bold text-primary">{product.ad.price}€</p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={cn(
-                      "h-12 w-12 rounded-full",
-                      isFavorite(product.ad.id)
-                        ? "text-red-500 hover:text-red-600"
-                        : "text-muted-foreground hover:text-red-400"
-                    )}
-                    onClick={(e) => toggleFavorite(e, product.ad.id)}
-                  >
-                    <Heart className={cn("h-7 w-7", isFavorite(product.ad.id) ? "fill-current" : "")} />
-                    <span className="sr-only">
-                      {isFavorite(product.ad.id) ? "Remover dos favoritos" : "Adicionar aos favoritos"}
-                    </span>
-                  </Button>
+                  {/* Verificar se o anúncio é do usuário atual */}
+                  {product.ad.created_by !== userID && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "h-12 w-12 rounded-full",
+                        isFavorite(product.ad.id)
+                          ? "text-red-500 hover:text-red-600"
+                          : "text-muted-foreground hover:text-red-400"
+                      )}
+                      onClick={(e) => toggleFavorite(e, product.ad.id)}
+                    >
+                      <Heart className={cn("h-7 w-7", isFavorite(product.ad.id) ? "fill-current" : "")} />
+                      <span className="sr-only">
+                        {isFavorite(product.ad.id) ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                      </span>
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -146,3 +196,4 @@ export default function MarketplacePage() {
     </div>
   );
 }
+  

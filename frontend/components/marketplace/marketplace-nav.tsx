@@ -28,6 +28,10 @@ const items = [
     title: "Mensagens",
     href: "/marketplace/mensagens",
   },
+  {
+    title: "Aprovar Anúncios",
+    href: "/marketplace/aprovar",
+  },
 ]
 
 export function MarketplaceNav() {
