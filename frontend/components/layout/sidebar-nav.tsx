@@ -24,14 +24,14 @@ export function SidebarNav({ className, isMobile = false }: { className?: string
   const NavContent = (
     <div
       className={cn(
-        "flex h-full flex-col border-r bg-[#2c3e6a] text-white transition-all duration-300",
+        "flex h-full flex-col bg-[#2c3e6a] text-white transition-all duration-300",
         isExpanded ? "w-72" : "w-24",
         className,
       )}
     >
-      <div className="flex h-20 items-center justify-between border-b px-6">
+      <div className="flex h-20 items-center justify-between px-6">
         <Link href="/dashboard" className="flex items-center gap-3 font-semibold">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-[#2c3e6a]">
+          <div className="flex h-10 w-10 items-center justify-center">
             <svg
               width="28"
               height="28"
@@ -43,6 +43,7 @@ export function SidebarNav({ className, isMobile = false }: { className?: string
               <path
                 d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z"
                 stroke="currentColor"
+                fill="none"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -50,6 +51,7 @@ export function SidebarNav({ className, isMobile = false }: { className?: string
               <path
                 d="M9 22V12H15V22"
                 stroke="currentColor"
+                fill="none"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
