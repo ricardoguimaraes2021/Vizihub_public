@@ -177,11 +177,11 @@ class MarketplaceController extends Controller
             'message' => 'Olá, tem um anuncio pendente para aprovação.',
         ];
     
-        Mail::send([], [], function ($message) use ($data) {
+        /*Mail::send([], [], function ($message) use ($data) {
             $message->to('tadeucosta00@gmail.com')
                     ->subject($data['subject'])
                     ->setBody($data['message'], 'text/plain');
-        });
+        });*/
     
 
         return response()->json([
@@ -316,15 +316,19 @@ class MarketplaceController extends Controller
         $userId = Auth::id();
     
         $chats = AdsChat::where('buyer_id', $userId)
-            ->orWhere('seller_id', $userId)
-            ->with(['ad', 'buyer', 'seller', 
-            
+        ->orWhere('seller_id', $userId)
+        ->with(['ad', 'buyer', 'seller', 
             'messages' => function($query) {
                 $query->latest()->limit(1);
-            }])
-            ->get();
+            }
+        ])
+        ->orderBy('updated_at', 'desc')
+        ->get();
     
-        foreach ($chats as $chat) {
+        $chatAds = [];
+
+        $i = 0;
+        foreach ($chats as $index => $chat) {
             $adFolder = public_path("uploads/ads/{$chat->ad_id}");
             $imagePaths = [];
     
@@ -337,12 +341,36 @@ class MarketplaceController extends Controller
                 }
             }
     
-            $chat->img = $imagePaths[0] ?? null;
+            $chatAd = new \stdClass();
+            $chatAd->ad_chat = $chat->id;
+            $chatAd->ad_id = $chat->ad->id;
+            $chatAd->ad_title = $chat->ad->title;
+            $chatAd->ad_img = $imagePaths[0] ?? null;
+            $chatAd->created_by = $chat->ad->created_by;
+            if($chat->buyer->id == $userId){
+                $chatAd->username_chat = $chat->seller->name;
+
+            }
+            else{
+                $chatAd->username_chat = $chat->buyer->name;
+            }
+
+            if ($chat->messages->isNotEmpty()) {
+                $lastMessage = $chat->messages->first();
+                $chatAd->lastmessage = $lastMessage->message;
+                $chatAd->date_time = $lastMessage->created_at;
+            }
+            else{
+                $chatAd->lastmessage = "Sem mensagens";
+                $chatAd->date_time = "";
+            }
+
+            $chatAds[$index] = $chatAd;
         }
     
         return response()->json([
-            'chats' => $chats,
             'user_id' => $userId,
+            'chatAds' => $chatAds,
         ], 200);
     }
     

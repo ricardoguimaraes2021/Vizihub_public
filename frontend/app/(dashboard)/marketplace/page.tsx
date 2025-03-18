@@ -16,21 +16,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const categories = [
-  { id: 1, name: "Eletrónicos" },
-  { id: 2, name: "Moda e Beleza" },
-  { id: 3, name: "Casa e Jardim" },
-  { id: 4, name: "Brinquedos e Jogos" },
-  { id: 5, name: "Móveis e Decoração" },
-  { id: 6, name: "Animais de Estimação" },
-  { id: 7, name: "Instrumentos Musicais" },
-  { id: 8, name: "Informática e Acessórios" },
-  { id: 9, name: "Livros, Filmes e Música" },
-  { id: 10, name: "Saúde e Bem-Estar" },
-  { id: 11, name: "Ferramentas e Equipamentos" },
-  { id: 12, name: "Fotografia e Filmagem" },
-];
-
 const getAuthToken = () => {
   const match = document.cookie.match(/(^| )authToken=([^;]+)/);
   return match ? match[2] : null;
@@ -42,10 +27,10 @@ export default function MarketplacePage() {
   const [userID, setUserID] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [visibleProducts, setVisibleProducts] = useState(6);
+  const [categories, setCategories] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchAds = async () => {
@@ -109,11 +94,42 @@ export default function MarketplacePage() {
         const favoriteAdIds = data.favorites.map((favorites: any) => favorites.ad.id);
         setFavorites(favoriteAdIds);
       } catch (err: any) {
-        setError(err.message);
+        // setError(err.message);
       }
     };
 
     fetchFavorites();
+  }, []);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const token = getAuthToken();
+      if (!token) {
+        setError("Sessão expirada. Faça login novamente.");
+        return;
+      }
+
+      try {
+        const response = await fetch("http://localhost:8000/api/marketplace/categories", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Erro ao carregar categorias.");
+        }
+
+        const data = await response.json();
+        setCategories(data.categories);
+      } catch (err: any) {
+        setError(err.message);
+      }
+    };
+
+    fetchCategories();
   }, []);
 
   const toggleFavorite = async (e: React.MouseEvent, productId: number) => {
@@ -153,7 +169,7 @@ export default function MarketplacePage() {
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.ad.title.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory ? product.ad.categoryId === selectedCategory : true;
+    const matchesCategory = selectedCategory ? product.ad.category_id === selectedCategory : true;
     return matchesSearch && matchesCategory;
   });
 

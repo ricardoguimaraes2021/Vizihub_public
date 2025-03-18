@@ -46,6 +46,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/marketplace/addfavorite', [MarketplaceController::class, 'addAdsFavorites']); 
     Route::get('/marketplace/getmyfavorites', [MarketplaceController::class, 'getMyAdsFavorites']); 
 
+    Route::post('/marketplace/createorgetchat', [MarketplaceController::class, 'createOrGetChat']); 
+
     
 
 

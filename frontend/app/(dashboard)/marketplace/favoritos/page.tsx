@@ -37,9 +37,9 @@ export default function FavoritosPage() {
           },
         })
 
-        if (!response.ok) {
+        /*if (!response.ok) {
           throw new Error("Erro ao carregar favoritos.")
-        }
+        }*/
 
         const data = await response.json()
 
@@ -95,16 +95,15 @@ export default function FavoritosPage() {
       {loading && <p className="text-center text-gray-500">Carregando favoritos...</p>}
       {error && <p className="text-center text-red-500">{error}</p>}
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {favorites.length === 0 && !loading && !error && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Você ainda não tem nenhum anúncio favoritado.</p>
+      {favorites.length === 0 && !loading && !error && (
+          <div className="flex flex-col items-center justify-center py-24 w-full">
+            <p className="text-muted-foreground text-center">Você ainda não tem nenhum anúncio favoritado.</p>
             <Button asChild className="mt-4">
               <Link href="/marketplace">Explorar anúncios</Link>
             </Button>
           </div>
         )}
-
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {favorites.map((favorites) => (
           <Link
             key={favorites.ad.id}

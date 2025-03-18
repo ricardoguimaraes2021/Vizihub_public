@@ -67,6 +67,40 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     fetchProductDetails()
   }, [id])
 
+  const handleCreateOrGetChat = async () => {
+    const token = getAuthToken()
+    if (!token) {
+      router.push("/login")
+      return
+    }
+  
+    try {
+      const response = await fetch("http://localhost:8000/api/marketplace/createorgetchat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ad_id: product.id,
+          seller_id: product.created_by,
+        }),
+      })
+  
+      if (!response.ok) {
+        throw new Error("Erro ao criar ou buscar o chat")
+      }
+  
+      const data = await response.json()
+      
+      router.push(`/marketplace/mensagens?id=${data.chat_id}`)
+    } catch (error) {
+      console.error(error)
+      alert("Ocorreu um erro ao iniciar a conversa.")
+    }
+  }
+  
+
   if (loading) {
     return <div className="flex items-center justify-center h-full">Carregando...</div>
   }
@@ -157,7 +191,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 <div className="font-medium">Data: {product.created_at}</div>
               </div>
 
-              {/* Verifica se o usuário autenticado é o dono do anúncio */}
               {userId === product.created_by ? (
                 <Button className="w-full" asChild>
                   <Link href={`/marketplace/${id}/edit`}>
@@ -166,12 +199,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   </Link>
                 </Button>
               ) : (
-                <Button className="w-full" asChild>
-                  <Link href={`/marketplace/${id}/chat`}>
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Enviar Mensagem
-                  </Link>
-                </Button>
+                <Button className="w-full" onClick={handleCreateOrGetChat}>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Enviar Mensagem
+                </Button>              
               )}
             </CardContent>
           </Card>

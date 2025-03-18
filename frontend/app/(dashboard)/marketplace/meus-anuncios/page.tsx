@@ -117,6 +117,10 @@ export default function MeusAnunciosPage() {
       {loading && <p className="text-center text-gray-500">Carregando anúncios...</p>}
       {error && <p className="text-center text-red-500">{error}</p>}
 
+      {!loading && !error  && (
+        <p className="text-center text-gray-500">Nenhum anúncio encontrado.</p>
+      )}
+
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {products.map((product) => (
           <Card key={product.ad.id} className="overflow-hidden">
