@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Ads;
+use App\Models\User;
 use App\Models\AdsChat;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Categories;
@@ -418,16 +419,43 @@ class MarketplaceController extends Controller
             'message' => 'required|string|max:1000',
         ]);
 
+        $userId = Auth::id();
+        $chat = AdsChat::find($request->chat_id);
+        $iduser_notificacao;
+        if($userId == $chat->buyer_id){
+            $iduser_notificacao = $chat->seller_id;
+        }
+        else{
+            $iduser_notificacao = $chat->buyer_id;
+        }
+
+        $user = User::find($iduser_notificacao);
+        if (!$user) {
+            return response()->json(['error' => 'utilizador destinatário não encontrado'], 404);
+        }
+    
+        $data = [
+            'subject' => 'Nova mensagem',
+            'message' => 'Olá, tem uma nova mensagem no marketplace',
+        ];
+        
+        /*Mail::send([], [], function ($message) use ($data, $user) {
+            $message->to($user->email)
+                    ->subject($data['subject'])
+                    ->setBody($data['message'], 'text/plain');
+        });*/
 
         $message = AdsMessages::create([
             'chat_id' => $request->chat_id,
             'sent_by' => Auth::id(),
             'message' => $request->message,
-            'date_time' => now(),
+            'create_at' => now(),
             'read' => false,
         ]);
 
-        broadcast(new NewChatMessage($message))->toOthers();
+        
+
+        //broadcast(new NewChatMessage($message))->toOthers();
 
 
         return response()->json([
@@ -438,12 +466,21 @@ class MarketplaceController extends Controller
 
     public function getChatMessages($chatId)
     {
+        $userId = Auth::id();
+        $chat = AdsChat::find($chatId);
+
+        if (!$chat) {
+            return response()->json(['error' => 'Chat não encontrado'], 404);
+        }
+    
         $messages = AdsMessages::where('chat_id', $chatId)
-            ->orderBy('date_time', 'asc')
+            ->orderBy('created_at', 'asc')
             ->get();
 
         return response()->json([
-            'messages' => $messages
+            'messages' => $messages,
+            'userId' => $userId,
+            'ad_id' => $chat->ad_id
         ], 200);
     }
 

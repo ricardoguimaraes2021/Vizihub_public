@@ -4,67 +4,93 @@ import { useState, useEffect, useRef } from "react"
 import { ArrowLeft, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-
+import { CardFooter } from "@/components/ui/card"
 
 type Message = {
   id: number
-  text: string
+  message: string
   sender: "user" | "seller"
-  timestamp: Date
+  created_at: string
 }
 
 type ChatProps = {
   selectedConversation: number
 }
 
+let ad_id = 0;
+
+const getAuthToken = () => {
+  const match = document.cookie.match(/(^| )authToken=([^;]+)/)
+  return match ? match[2] : null
+}
+
 export default function Chat({ selectedConversation }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [message, setMessage] = useState("")
+  const [userId, setUserId] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // Simular mensagens para a conversa selecionada
-    const initialMessages: Message[] = [
-      {
-        id: 1,
-        text: "Olá! Estou interessado no seu produto. Ainda está disponível?",
-        sender: "user",
-        timestamp: new Date(Date.now() - 3600000), // 1 hora atrás
-      },
-      {
-        id: 2,
-        text: "Sim, está disponível!",
-        sender: "seller",
-        timestamp: new Date(Date.now() - 3500000), // 58 minutos atrás
-      },
-    ]
-    setMessages(initialMessages)
-  }, [selectedConversation]) // Atualizar quando mudar a conversa selecionada
+    async function fetchMessages() {
+      const authToken = getAuthToken()
+      if (!authToken) return
+      
+      try {
+        const response = await fetch(`http://localhost:8000/api/marketplace/chat/${selectedConversation}/messages`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${authToken}`,
+            "Content-Type": "application/json"
+          }
+        })
+        if (!response.ok) {
+          throw new Error("Erro ao carregar mensagens")
+        }
+        const data = await response.json()
+        ad_id = data.ad_id
+        setMessages(data.messages.map((msg: any) => ({
+          id: msg.id,
+          message: msg.message,
+          sender: msg.sent_by === data.userId ? "user" : "seller",
+          created_at: msg.created_at
+        })))
+        setUserId(data.userId)
+      } catch (error) {
+        console.error("Erro ao buscar mensagens:", error)
+      }
+    }
+    fetchMessages()
+  }, [selectedConversation])
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!message.trim()) return
+    
+    const authToken = getAuthToken()
+    if (!authToken) return
 
-    const userMessage: Message = {
+    const newMessage: Message = {
       id: messages.length + 1,
-      text: message,
+      message: message,
       sender: "user",
-      timestamp: new Date(),
+      created_at: new Date().toISOString(),
     }
-    setMessages((prev) => [...prev, userMessage])
+
+    setMessages((prev) => [...prev, newMessage])
     setMessage("")
 
-    setTimeout(() => {
-      const sellerMessage: Message = {
-        id: messages.length + 2,
-        text: "Obrigado pela sua mensagem! Vou verificar e responder em breve.",
-        sender: "seller",
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, sellerMessage])
-    }, 1000)
+    try {
+      await fetch(`http://localhost:8000/api/marketplace/sendmessage`, {
+        method: "POST",
+        headers: { 
+          "Authorization": `Bearer ${authToken}`,
+          "Content-Type": "application/json" 
+        },
+        body: JSON.stringify({ message: message, chat_id: selectedConversation, anuncio_id: ad_id })
+      })
+    } catch (error) {
+      console.error("Erro ao enviar mensagem:", error)
+    }
   }
 
   useEffect(() => {
@@ -91,9 +117,9 @@ export default function Chat({ selectedConversation }: ChatProps) {
                 msg.sender === "user" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
               }`}
             >
-              <p>{msg.text}</p>
+              <p>{msg.message}</p>
               <p className="text-right text-xs">
-                {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
               </p>
             </div>
           </div>
