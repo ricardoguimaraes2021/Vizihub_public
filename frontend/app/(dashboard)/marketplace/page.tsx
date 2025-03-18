@@ -4,10 +4,32 @@ import type React from "react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { PlusCircle, Heart } from "lucide-react";
+import { Heart, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const categories = [
+  { id: 1, name: "Eletrónicos" },
+  { id: 2, name: "Moda e Beleza" },
+  { id: 3, name: "Casa e Jardim" },
+  { id: 4, name: "Brinquedos e Jogos" },
+  { id: 5, name: "Móveis e Decoração" },
+  { id: 6, name: "Animais de Estimação" },
+  { id: 7, name: "Instrumentos Musicais" },
+  { id: 8, name: "Informática e Acessórios" },
+  { id: 9, name: "Livros, Filmes e Música" },
+  { id: 10, name: "Saúde e Bem-Estar" },
+  { id: 11, name: "Ferramentas e Equipamentos" },
+  { id: 12, name: "Fotografia e Filmagem" },
+];
 
 const getAuthToken = () => {
   const match = document.cookie.match(/(^| )authToken=([^;]+)/);
@@ -17,9 +39,13 @@ const getAuthToken = () => {
 export default function MarketplacePage() {
   const [products, setProducts] = useState<any[]>([]);
   const [favorites, setFavorites] = useState<number[]>([]);
-  const [userID, setUserID] = useState<number | null>(null); // Armazenar o userID
+  const [userID, setUserID] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [visibleProducts, setVisibleProducts] = useState(6);
 
   useEffect(() => {
     const fetchAds = async () => {
@@ -47,7 +73,7 @@ export default function MarketplacePage() {
         const data = await response.json();
         const ads = data.ads || [];
         setProducts(ads);
-        setUserID(data.userID); // Setando o userID da resposta da API
+        setUserID(data.userID);
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -118,7 +144,6 @@ export default function MarketplacePage() {
         ? favorites.filter((id) => id !== productId)
         : [...favorites, productId];
       setFavorites(updatedFavorites);
-
     } catch (err: any) {
       setError(err.message);
     }
@@ -126,27 +151,74 @@ export default function MarketplacePage() {
 
   const isFavorite = (productId: number) => favorites.includes(productId);
 
+  const filteredProducts = products.filter((product) => {
+    const matchesSearch = product.ad.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory ? product.ad.categoryId === selectedCategory : true;
+    return matchesSearch && matchesCategory;
+  });
+
+  const loadMoreProducts = () => {
+    setVisibleProducts((prev) => prev + 6);
+  };
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (
+        window.innerHeight + document.documentElement.scrollTop ===
+        document.documentElement.offsetHeight
+      ) {
+        loadMoreProducts();
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Marketplace</h1>
-        <Button asChild>
-          <Link href="/marketplace/adicionar">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Adicionar Produto
-          </Link>
-        </Button>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-4 w-full">
+        <div className="relative w-full max-w-md">
+          <input
+            type="text"
+            placeholder="Pesquisar produtos..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+        </div>
+
+        <div className="ml-auto">
+          <Select onValueChange={(value) => setSelectedCategory(value === "all" ? null : parseInt(value))}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Categoria" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as categorias</SelectItem>
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={category.id.toString()}>
+                  {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {loading && <p className="text-center text-gray-500">Carregando anúncios...</p>}
       {error && <p className="text-center text-red-500">{error}</p>}
 
-      {!loading && !error && products.length === 0 && (
+      {!loading && !error && filteredProducts.length === 0 && (
         <p className="text-center text-gray-500">Nenhum anúncio encontrado.</p>
       )}
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {products.map((product) => (
+        {filteredProducts.slice(0, visibleProducts).map((product) => (
           <Link
             key={product.ad.id}
             href={`/marketplace/${product.ad.id}`}
@@ -168,7 +240,6 @@ export default function MarketplacePage() {
                     <h3 className="line-clamp-1 font-medium mb-1">{product.ad.title}</h3>
                     <p className="font-bold text-primary">{product.ad.price}€</p>
                   </div>
-                  {/* Verificar se o anúncio é do usuário atual */}
                   {product.ad.created_by !== userID && (
                     <Button
                       variant="ghost"
@@ -193,7 +264,14 @@ export default function MarketplacePage() {
           </Link>
         ))}
       </div>
+
+      {visibleProducts < filteredProducts.length && (
+        <div className="flex justify-center">
+          <Button onClick={loadMoreProducts} className="mt-4">
+            Carregar Mais
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
-  
