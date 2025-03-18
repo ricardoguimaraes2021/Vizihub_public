@@ -8,6 +8,9 @@ export const metadata: Metadata = {
   description:
     "Plataforma digital inovadora que promove a comunicação, colaboração e segurança dentro de comunidades residenciais.",
   generator: "v0.dev",
+  icons: {
+    icon: "/favicon.svg", 
+  },
 }
 
 export default function RootLayout({
