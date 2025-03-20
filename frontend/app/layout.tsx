@@ -1,7 +1,6 @@
-import type React from "react"
 import type { Metadata } from "next"
+import { Toaster } from "sonner"
 import "./globals.css"
-import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
   title: "ViziHub - A Sua Vizinhança, Mais Conectada",
@@ -9,7 +8,7 @@ export const metadata: Metadata = {
     "Plataforma digital inovadora que promove a comunicação, colaboração e segurança dentro de comunidades residenciais.",
   generator: "v0.dev",
   icons: {
-    icon: "/favicon.svg", 
+    icon: "/favicon.svg",
   },
 }
 
@@ -22,13 +21,16 @@ export default function RootLayout({
     <html lang="pt">
       <body className="bg-gradient-to-b from-blue-50 to-white min-h-screen">
         {children}
-        <Toaster />
+        <Toaster
+          position="top-right"
+          expand={false}
+          richColors
+          closeButton
+          toastOptions={{
+            duration: 3000,
+          }}
+        />
       </body>
     </html>
   )
 }
-
-
-
-
-import './globals.css'

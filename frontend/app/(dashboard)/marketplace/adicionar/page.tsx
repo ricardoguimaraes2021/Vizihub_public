@@ -1,10 +1,11 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Upload, X } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,9 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 const getAuthToken = () => {
-  const match = document.cookie.match(/(^| )authToken=([^;]+)/);
-  return match ? match[2] : null;
-};
+  const match = document.cookie.match(/(^| )authToken=([^;]+)/)
+  return match ? match[2] : null
+}
 
 export default function AdicionarProdutoPage() {
   const router = useRouter()
@@ -24,7 +25,7 @@ export default function AdicionarProdutoPage() {
     description: "",
     price: "",
     condition: "",
-    category: "", 
+    category: "",
   })
   const [images, setImages] = useState<File[]>([])
   const [productConditions, setProductConditions] = useState<{ id: number; name: string }[]>([])
@@ -118,15 +119,17 @@ export default function AdicionarProdutoPage() {
       const responseData = await response.json()
 
       if (response.ok) {
-        alert(responseData.message)
-        //router.push("/marketplace")
+        toast.success(responseData.message || "Anúncio criado com sucesso!")
+        setTimeout(() => {
+          router.push("/marketplace")
+        }, 3000)
       } else {
+        toast.error(responseData.message || "Erro ao criar o anúncio. Tente novamente.")
         console.error("Erro ao criar anúncio:", responseData)
-        alert("Erro ao criar o anúncio. Tente novamente.")
       }
     } catch (error) {
+      toast.error("Erro de conexão com o servidor")
       console.error("Erro ao enviar dados", error)
-      alert("Erro ao enviar dados. Tente novamente.")
     }
   }
 
