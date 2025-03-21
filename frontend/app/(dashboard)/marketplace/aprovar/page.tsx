@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AnunciosDataTable } from "./data-table"
 import { columns } from "./columns"
-import { useToast } from "@/hooks/use-toast"
 
 // Função para obter o token de autenticação
 const getAuthToken = () => {
@@ -16,7 +16,6 @@ const getAuthToken = () => {
 
 export default function AprovarAnunciosPage() {
   const router = useRouter()
-  const { toast } = useToast()
   const [anuncios, setAnuncios] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -30,10 +29,8 @@ export default function AprovarAnunciosPage() {
       const token = getAuthToken()
       if (!token) {
         setError("Sessão expirada. Faça login novamente.")
-        toast({
-          title: "Sessão expirada",
+        toast.error("Sessão expirada", {
           description: "Faça login novamente para continuar.",
-          variant: "destructive",
         })
         router.push("/login")
         return
@@ -75,10 +72,8 @@ export default function AprovarAnunciosPage() {
       setAnuncios(formattedData)
     } catch (err: any) {
       setError(err.message)
-      toast({
-        title: "Erro ao carregar anúncios",
+      toast.error("Erro ao carregar anúncios", {
         description: err.message || "Não foi possível carregar os anúncios pendentes.",
-        variant: "destructive",
       })
     } finally {
       setLoading(false)
@@ -95,10 +90,8 @@ export default function AprovarAnunciosPage() {
     try {
       const token = getAuthToken()
       if (!token) {
-        toast({
-          title: "Sessão expirada",
+        toast.error("Sessão expirada", {
           description: "Faça login novamente para continuar.",
-          variant: "destructive",
         })
         router.push("/login")
         return
@@ -117,18 +110,15 @@ export default function AprovarAnunciosPage() {
         throw new Error("Erro ao aprovar anúncio.")
       }
 
-      toast({
-        title: "Anúncio aprovado",
-        description: "O anúncio foi aprovado com sucesso.",
+      toast.success("Anúncio aprovado", {
+        description: "O anúncio foi aprovado com sucesso e já está disponível no marketplace.",
       })
 
       // Atualizar a lista de anúncios
       fetchAnunciosPendentes()
     } catch (err: any) {
-      toast({
-        title: "Erro ao aprovar anúncio",
+      toast.error("Erro ao aprovar anúncio", {
         description: err.message || "Não foi possível aprovar o anúncio.",
-        variant: "destructive",
       })
     }
   }
@@ -138,10 +128,8 @@ export default function AprovarAnunciosPage() {
     try {
       const token = getAuthToken()
       if (!token) {
-        toast({
-          title: "Sessão expirada",
+        toast.error("Sessão expirada", {
           description: "Faça login novamente para continuar.",
-          variant: "destructive",
         })
         router.push("/login")
         return
@@ -160,18 +148,15 @@ export default function AprovarAnunciosPage() {
         throw new Error("Erro ao rejeitar anúncio.")
       }
 
-      toast({
-        title: "Anúncio rejeitado",
+      toast.success("Anúncio rejeitado", {
         description: "O anúncio foi rejeitado com sucesso.",
       })
 
       // Atualizar a lista de anúncios
       fetchAnunciosPendentes()
     } catch (err: any) {
-      toast({
-        title: "Erro ao rejeitar anúncio",
+      toast.error("Erro ao rejeitar anúncio", {
         description: err.message || "Não foi possível rejeitar o anúncio.",
-        variant: "destructive",
       })
     }
   }

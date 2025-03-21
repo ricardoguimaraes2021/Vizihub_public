@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 import { useState } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -32,16 +33,70 @@ export function AnuncioDetailsDialog({
   onRejeitar,
 }: AnuncioDetailsDialogProps) {
   const [selectedImage, setSelectedImage] = useState<string>(anuncio.imagens[0] || "")
+  const [isAprovando, setIsAprovando] = useState(false)
+  const [isRejeitando, setIsRejeitando] = useState(false)
+
+  const handleAprovar = () => {
+    setIsAprovando(true)
+
+    // Mostrar toast de confirmação
+    toast.promise(
+      new Promise<void>((resolve) => {
+        // Simular um pequeno atraso para mostrar o estado de carregamento
+        setTimeout(() => {
+          onAprovar()
+          resolve()
+        }, 500)
+      }),
+      {
+        loading: "Aprovando anúncio...",
+        success: () => {
+          setIsAprovando(false)
+          return "Anúncio aprovado com sucesso!"
+        },
+        error: () => {
+          setIsAprovando(false)
+          return "Erro ao aprovar anúncio"
+        },
+      },
+    )
+  }
+
+  const handleRejeitar = () => {
+    setIsRejeitando(true)
+
+    // Mostrar toast de confirmação
+    toast.promise(
+      new Promise<void>((resolve) => {
+        // Simular um pequeno atraso para mostrar o estado de carregamento
+        setTimeout(() => {
+          onRejeitar()
+          resolve()
+        }, 500)
+      }),
+      {
+        loading: "Rejeitando anúncio...",
+        success: () => {
+          setIsRejeitando(false)
+          return "Anúncio rejeitado com sucesso!"
+        },
+        error: () => {
+          setIsRejeitando(false)
+          return "Erro ao rejeitar anúncio"
+        },
+      },
+    )
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">{anuncio.titulo}</DialogTitle>
-          <DialogDescription className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mt-1">
             <Badge variant="outline">Pendente</Badge>
-            <span>ID: {anuncio.id}</span>
-          </DialogDescription>
+            <DialogDescription className="m-0">ID: {anuncio.id}</DialogDescription>
+          </div>
         </DialogHeader>
 
         <Tabs defaultValue="detalhes" className="mt-4">
@@ -127,10 +182,12 @@ export function AnuncioDetailsDialog({
         </Tabs>
 
         <DialogFooter className="flex justify-between sm:justify-between">
-          <Button variant="destructive" onClick={onRejeitar}>
-            Rejeitar Anúncio
+          <Button variant="destructive" onClick={handleRejeitar} disabled={isRejeitando || isAprovando}>
+            {isRejeitando ? "Rejeitando..." : "Rejeitar Anúncio"}
           </Button>
-          <Button onClick={onAprovar}>Aprovar Anúncio</Button>
+          <Button onClick={handleAprovar} disabled={isAprovando || isRejeitando}>
+            {isAprovando ? "Aprovando..." : "Aprovar Anúncio"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
