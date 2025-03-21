@@ -59,5 +59,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/marketplace/chats', [MarketplaceController::class, 'getchats']);
     Route::post('/marketplace/sendmessage', [MarketplaceController::class, 'sendMessage']);
     Route::get('/marketplace/chat/{chatId}/messages', [MarketplaceController::class, 'getChatMessages']);
+
+    Route::get('marketplace/anuncios-pendentes', [MarketplaceController::class, 'getAnunciosPendentes']);
+    Route::post('marketplace/aprovar-anuncio/{id}', [MarketplaceController::class, 'aprovarAnuncio']);
+    Route::post('marketplace/rejeitar-anuncio/{id}', [MarketplaceController::class, 'rejeitarAnuncio']);
     
 });

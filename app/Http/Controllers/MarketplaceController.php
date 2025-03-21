@@ -520,5 +520,139 @@ class MarketplaceController extends Controller
     
         return response()->json(['chats' => $formattedChats], 200);
     }
+
+ /**
+ * Aprovar um anúncio (mudar status de Pendente para Disponível)
+ */
+public function aprovarAnuncio($id)
+{
+    $userId = Auth::id();
+    $ad = Ads::find($id);
+
+    if (!$ad) {
+        return response()->json(['message' => 'Anúncio não encontrado'], 404);
+    }
+    
+    // Verificar se o anúncio está pendente
+    if ($ad->status_id != 1) {
+        return response()->json(['message' => 'Este anúncio não está pendente de aprovação'], 400);
+    }
+    
+    // Atualizar o status para Disponível (2)
+    $ad->status_id = 2;
+    $ad->save();
+    
+    // Enviar e-mail de notificação ao vendedor (opcional)
+    $vendedor = User::find($ad->created_by);
+    if ($vendedor) {
+        $data = [
+            'subject' => 'Anúncio Aprovado',
+            'message' => "Olá {$vendedor->name}, seu anúncio '{$ad->title}' foi aprovado e está disponível no marketplace.",
+        ];
+        
+        /*Mail::send([], [], function ($message) use ($data, $vendedor) {
+            $message->to($vendedor->email)
+                    ->subject($data['subject'])
+                    ->setBody($data['message'], 'text/plain');
+        });*/
+    }
+    
+    return response()->json(['message' => 'Anúncio aprovado com sucesso'], 200);
+}
+
+/**
+ * Rejeitar um anúncio (mudar status de Pendente para Desativo)
+ */
+public function rejeitarAnuncio($id)
+{
+    // Verificar se o usuário está autenticado
+    $userId = Auth::id();
+    
+    // Buscar o anúncio pelo ID
+    $ad = Ads::find($id);
+    
+    // Verificar se o anúncio existe
+    if (!$ad) {
+        return response()->json(['message' => 'Anúncio não encontrado'], 404);
+    }
+    
+    // Verificar se o anúncio está pendente
+    if ($ad->status_id != 1) {
+        return response()->json(['message' => 'Este anúncio não está pendente de aprovação'], 400);
+    }
+    
+    // Atualizar o status para Desativo (4)
+    $ad->status_id = 4;
+    $ad->save();
+    
+    // Enviar e-mail de notificação ao vendedor (opcional)
+    $vendedor = User::find($ad->created_by);
+    if ($vendedor) {
+        $data = [
+            'subject' => 'Anúncio Rejeitado',
+            'message' => "Olá {$vendedor->name}, infelizmente o seu anúncio '{$ad->title}' não foi aprovado. Por favor, revise as diretrizes do marketplace e tente novamente.",
+        ];
+        
+        /*Mail::send([], [], function ($message) use ($data, $vendedor) {
+            $message->to($vendedor->email)
+                    ->subject($data['subject'])
+                    ->setBody($data['message'], 'text/plain');
+        });*/
+    }
+    
+    return response()->json(['message' => 'Anúncio rejeitado com sucesso'], 200);
+}
+
+/**
+ * Obter todos os anúncios pendentes de aprovação
+ */
+public function getAnunciosPendentes()
+{
+    $userId = Auth::id();
+    $ads = Ads::where('status_id', 1) 
+        ->orderBy('created_at', 'desc')
+        ->get();
+    
+    $adsWithImages = [];
+    
+    foreach ($ads as $ad) {
+        $adFolder = public_path("uploads/ads/{$ad->id}");
+        $imagePaths = [];
+        
+        if (file_exists($adFolder)) {
+            $files = scandir($adFolder);
+            foreach ($files as $file) {
+                if ($file !== '.' && $file !== '..') {
+                    $imagePaths[] = url("uploads/ads/{$ad->id}/{$file}");
+                }
+            }
+        }
+        
+        // Obter informações adicionais (categoria, estado, vendedor)
+        $categoria = Categories::find($ad->category_id);
+        $estado = ProductsState::find($ad->state_product_id);
+        $vendedor = User::find($ad->created_by);
+        
+        $adsWithImages[] = [
+            'ad' => [
+                'id' => $ad->id,
+                'title' => $ad->title,
+                'description' => $ad->description,
+                'price' => $ad->price,
+                'category_id' => $ad->category_id,
+                'category_name' => $categoria ? $categoria->name : 'Não especificado',
+                'state_product_id' => $ad->state_product_id,
+                'state_product_name' => $estado ? $estado->name : 'Não especificado',
+                'created_by' => $ad->created_by,
+                'created_by_name' => $vendedor ? $vendedor->name : 'Desconhecido',
+                'created_at' => $ad->created_at,
+                'status_id' => $ad->status_id,
+            ],
+            'images' => $imagePaths
+        ];
+    }
+    
+    return response()->json(['ads' => $adsWithImages], 200);
+}
 }
 
